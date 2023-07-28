@@ -199,6 +199,7 @@ $(function() {
         }
     }
 
+    //TODO: after zoom out, the center of view rectangle changes. possibly caused by hyper-parameters
     function zoom(direction, level) {
         const starting_level = current_level;
         // Account for aspect ratio

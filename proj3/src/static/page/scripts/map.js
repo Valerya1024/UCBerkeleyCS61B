@@ -1,10 +1,10 @@
 /**
-  * Map project javascript file written for CS61B/CS61BL.
-  * This is not an example of good javascript or programming practice.
-  * Feel free to improve this front-end for your own personal pleasure.
-  * Authors: Alan Yao (Spring 2016), Colby Guan (Spring 2017), Alexander Hwang (Spring 2018)
-  * If using, please credit authors.
-  **/
+ * Map project javascript file written for CS61B/CS61BL.
+ * This is not an example of good javascript or programming practice.
+ * Feel free to improve this front-end for your own personal pleasure.
+ * Authors: Alan Yao (Spring 2016), Colby Guan (Spring 2017), Alexander Hwang (Spring 2018)
+ * If using, please credit authors.
+ **/
 
 $(function() {
     'use strict';
@@ -15,7 +15,7 @@ $(function() {
     const $errorStatus = $('#status-error');
     const $directionsText = $('#directions-text');
     const themeableElements = ['body', '.actions', '.card', '.search', '.ui-autocomplete',
-                                '.status', '.settings', '.clear', '.action-icon'];
+        '.status', '.settings', '.clear', '.action-icon'];
     var params = {
         ullat: 37.88,
         ullon: -122.27625,
@@ -118,7 +118,7 @@ $(function() {
                     $loadingStatus.hide();
                     map.src = 'data:image/png;base64,' + data.b64_encoded_image_data;
                     console.log('Updating map with image length: ' +
-                                data.b64_encoded_image_data.length);
+                        data.b64_encoded_image_data.length);
                     ullon_bound = data.raster_ul_lon;
                     ullat_bound = data.raster_ul_lat;
                     lrlon_bound = data.raster_lr_lon;
@@ -159,7 +159,7 @@ $(function() {
         for (var i = 0; i < markers.length; i++) {
             const marker = markers[i];
             marker.element.css('transform', 'translateX(' + (tx+marker.tx) + 'px) translateY(' +
-            (ty + marker.ty) + 'px)');
+                (ty + marker.ty) + 'px)');
         }
         // validate transform - true if img needs updating
         return params.ullon < ullon_bound || params.ullat > ullat_bound ||
@@ -325,31 +325,31 @@ $(function() {
 
     /* Make search bar do autocomplete things */
     $('#tags').autocomplete({
-          source: search,
-          minLength: 2,
-          select: function (event, ui) {
-              $.get({
-                  async: true,
-                  url: search,
-                  dataType: 'json',
-                  data: { term: ui.item.value, full: true},
-                  success: function(data) {
-                      removeMarkers();
-                      for (var i = 0; i < data.length; i++) {
-                          console.log(data[i]);
-                          const ele = $('<img/>', {
-                              id: data[i].id,
-                              src: 'round_marker.gif',
-                              class: 'rmarker'
-                          });
-                          ele.appendTo($('#markers'));
-                          markers.push({lat: data[i].lat, lon: data[i].lon,
-                                        tx: 0, ty: 0, element: ele});
-                      }
-                      update();
-                  },
-              });
-          }
+        source: search,
+        minLength: 2,
+        select: function (event, ui) {
+            $.get({
+                async: true,
+                url: search,
+                dataType: 'json',
+                data: { term: ui.item.value, full: true},
+                success: function(data) {
+                    removeMarkers();
+                    for (var i = 0; i < data.length; i++) {
+                        console.log(data[i]);
+                        const ele = $('<img/>', {
+                            id: data[i].id,
+                            src: 'round_marker.gif',
+                            class: 'rmarker'
+                        });
+                        ele.appendTo($('#markers'));
+                        markers.push({lat: data[i].lat, lon: data[i].lon,
+                            tx: 0, ty: 0, element: ele});
+                    }
+                    update();
+                },
+            });
+        }
     });
     setTheme();
 
@@ -363,44 +363,44 @@ $(function() {
 
     /* Enables drag functionality */
     $body.on('mousedown', function(event) {
-      var startX = event.pageX;
-      var startY = event.pageY;
-      var tmpX = startX;
-      var tmpY = startY;
-      var moved = false;
+        var startX = event.pageX;
+        var startY = event.pageY;
+        var tmpX = startX;
+        var tmpY = startY;
+        var moved = false;
 
-      $body.on('mousemove', function(event) {
-        const dx = event.pageX - tmpX;
-        const dy = event.pageY - tmpY;
-        tx += dx;
-        ty += dy;
-        tmpX = event.pageX;
-        tmpY = event.pageY;
-        moved = true;
-        updateT();
-      });
+        $body.on('mousemove', function(event) {
+            const dx = event.pageX - tmpX;
+            const dy = event.pageY - tmpY;
+            tx += dx;
+            ty += dy;
+            tmpX = event.pageX;
+            tmpY = event.pageY;
+            moved = true;
+            updateT();
+        });
 
-      $body.on('mouseup', function(event) {
-        $body.off('mousemove');
-        $body.off('mouseup');
-        if (moved) {
-            const dx = event.pageX - startX;
-            const dy = event.pageY - startY;
-            params.ullon -= dx * wdpp;
-            params.lrlon -= dx * wdpp;
-            params.ullat += dy * hdpp;
-            params.lrlat += dy * hdpp;
-            conditionalUpdate();
-        }
-      });
+        $body.on('mouseup', function(event) {
+            $body.off('mousemove');
+            $body.off('mouseup');
+            if (moved) {
+                const dx = event.pageX - startX;
+                const dy = event.pageY - startY;
+                params.ullon -= dx * wdpp;
+                params.lrlon -= dx * wdpp;
+                params.ullat += dy * hdpp;
+                params.lrlat += dy * hdpp;
+                conditionalUpdate();
+            }
+        });
     });
 
     $('.zoomin').click(function() {
-       zoomIn();
+        zoomIn();
     });
 
     $('.zoomout').click(function() {
-       zoomOut();
+        zoomOut();
     });
 
     $('.clear').click(function() {

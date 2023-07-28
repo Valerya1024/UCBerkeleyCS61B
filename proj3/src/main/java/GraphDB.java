@@ -6,7 +6,7 @@ import java.io.IOException;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import java.util.ArrayList;
+import java.util.*;
 
 /**
  * Graph for storing all of the intersection (vertex) and road (edge) information.
@@ -21,12 +21,31 @@ public class GraphDB {
     /** Your instance variables for storing the graph. You should consider
      * creating helper classes, e.g. Node, Edge, etc. */
 
+    private HashMap<Long, Node> nodes;
+    private HashMap<Long, Way> ways;
+    private ArrayList<ArrayList<ArrayList<Long>>> posMap;
+    private Trie locations;
+    public static final int POS_MAP_LEVEL = 7;
+
     /**
      * Example constructor shows how to create and start an XML parser.
      * You do not need to modify this constructor, but you're welcome to do so.
      * @param dbPath Path to the XML file to be parsed.
      */
     public GraphDB(String dbPath) {
+        nodes = new HashMap<>();
+        ways = new HashMap<>();
+        posMap = new ArrayList<>();
+        locations = new Trie();
+        int pos_map_div = (int) Math.pow(2, POS_MAP_LEVEL);
+        for (int i = 0; i < pos_map_div; i++) {
+            ArrayList<ArrayList<Long>> temp = new ArrayList<>();
+            for (int j = 0; j < pos_map_div; j++) {
+                ArrayList<Long> temp2 = new ArrayList<>();
+                temp.add(temp2);
+            }
+            posMap.add(temp);
+        }
         try {
             File inputFile = new File(dbPath);
             FileInputStream inputStream = new FileInputStream(inputFile);
@@ -42,6 +61,32 @@ public class GraphDB {
         clean();
     }
 
+    public void addNode(long id, double lat, double lon) {
+        nodes.put(id, new Node(id, lat, lon));
+    }
+
+    public void addEdge(long id1, long id2, long wayId) {
+        nodes.get(id1).addEdge(id2, wayId);
+        nodes.get(id2).addEdge(id1, wayId);
+    }
+
+    public void addWay(long wayId, int maxSpeed, String name){
+        ways.put(wayId, new Way(wayId, maxSpeed, name));
+    }
+
+    public void addLocation(long id, String name, double lat, double lon){
+        locations.insert(name, id, lat, lon);
+    }
+
+    public long getWayId(long id1, long id2) {
+        long wayId = nodes.get(id1).getWay(id2);
+        return wayId;
+    }
+
+    public Way getWay(long wayId) {
+        return ways.get(wayId);
+    }
+
     /**
      * Helper to process strings into their "cleaned" form, ignoring punctuation and capitalization.
      * @param s Input string.
@@ -52,12 +97,25 @@ public class GraphDB {
     }
 
     /**
-     *  Remove nodes with no connections from the graph.
+     *  Remove nodes with no connections from the graph; add other nodes to posMap
      *  While this does not guarantee that any two nodes in the remaining graph are connected,
      *  we can reasonably assume this since typically roads are connected.
      */
     private void clean() {
-        // TODO: Your code here.
+        ArrayList<Long> toRemove = new ArrayList<>();
+        for (Map.Entry<Long, Node> e : nodes.entrySet()) {
+            Node n = e.getValue();
+            if (n.disconnected()) {
+                toRemove.add(e.getKey());
+            } else {
+                int latIdx = Rasterer.getIdx(n.getLat(), true, POS_MAP_LEVEL);
+                int lonIdx = Rasterer.getIdx(n.getLon(), false, POS_MAP_LEVEL);
+                posMap.get(latIdx).get(lonIdx).add(e.getKey());
+            }
+        }
+        for (Long id : toRemove) {
+            nodes.remove(id);
+        }
     }
 
     /**
@@ -65,8 +123,7 @@ public class GraphDB {
      * @return An iterable of id's of all vertices in the graph.
      */
     Iterable<Long> vertices() {
-        //YOUR CODE HERE, this currently returns only an empty list.
-        return new ArrayList<Long>();
+        return nodes.keySet();
     }
 
     /**
@@ -75,7 +132,8 @@ public class GraphDB {
      * @return An iterable of the ids of the neighbors of v.
      */
     Iterable<Long> adjacent(long v) {
-        return null;
+        Node n = nodes.get(v);
+        return n.getAdjacent();
     }
 
     /**
@@ -86,7 +144,7 @@ public class GraphDB {
      * @param w The id of the second vertex.
      * @return The great-circle distance between the two locations from the graph.
      */
-    double distance(long v, long w) {
+    public double distance(long v, long w) {
         return distance(lon(v), lat(v), lon(w), lat(w));
     }
 
@@ -136,7 +194,54 @@ public class GraphDB {
      * @return The id of the node in the graph closest to the target.
      */
     long closest(double lon, double lat) {
-        return 0;
+        int latIdx = Rasterer.getIdx(lat, true, POS_MAP_LEVEL);
+        int lonIdx = Rasterer.getIdx(lon, false, POS_MAP_LEVEL);
+        //System.out.println(latIdx+" "+lonIdx);
+        ArrayList<Long> closeNodes = posMap.get(latIdx).get(lonIdx);
+        int level = 0;
+        int extra_level = 0;
+        while (closeNodes.size() == 0 || extra_level == 0){
+            level++;
+            if (closeNodes.size() != 0){
+                extra_level++;
+            }
+            for (int j = lonIdx - level; j < lonIdx + level + 1; j++) {
+                if ( j >= 0 && j <= 127) {
+                    if (latIdx - level >= 0 && latIdx - level <= 127) {
+                        closeNodes.addAll(posMap.get(latIdx - level).get(j));
+                    }
+                    if (latIdx + level >= 0 && latIdx + level <= 127) {
+                        closeNodes.addAll(posMap.get(latIdx + level).get(j));
+                    }
+                }
+            }
+            for (int i = latIdx - level + 1; i < latIdx + level + 1; i++) {
+                if ( i >= 0 && i <= 127) {
+                    if ( lonIdx - level >= 0 && lonIdx - level <= 127) {
+                        closeNodes.addAll(posMap.get(i).get(lonIdx - level));
+                    }
+                    if ( lonIdx + level >= 0 && lonIdx + level <= 127) {
+                        closeNodes.addAll(posMap.get(i).get(lonIdx + level));
+                    }
+                }
+
+            }
+        }
+        double minDist = distance(MapServer.ROOT_LRLON, MapServer.ROOT_LRLAT, MapServer.ROOT_ULLON, MapServer.ROOT_ULLAT);
+        Long closestId = 0L;
+        Long exp = 53076845L;
+        for (Long id: closeNodes) {
+            Node n = nodes.get(id);
+            double dist = distance(lon, lat, n.getLon(), n.getLat());
+            if (dist <= minDist) {
+                minDist = dist;
+                closestId = id;
+            }
+            if (exp == id) {
+                System.out.println(minDist+" "+ dist);
+            }
+        }
+        return closestId;
     }
 
     /**
@@ -145,7 +250,7 @@ public class GraphDB {
      * @return The longitude of the vertex.
      */
     double lon(long v) {
-        return 0;
+        return nodes.get(v).getLon();
     }
 
     /**
@@ -154,6 +259,20 @@ public class GraphDB {
      * @return The latitude of the vertex.
      */
     double lat(long v) {
-        return 0;
+        return nodes.get(v).getLat();
+    }
+
+    /**
+     * Gets location names by prefix
+     */
+    public List<String> getLocationsByPrefix(String prefix) {
+        List<String> res = locations.search(prefix);
+        return res;
+    }
+
+    public List<Map<String, Object>> getLocations(String locationName) {
+        return locations.getLocs(locationName);
     }
 }
+
+
